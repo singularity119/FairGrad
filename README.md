@@ -7,7 +7,7 @@ Official implementation of *Fair Resource Allocation in Multi-Task Learning*.
 The performance is evaluated under 3 scenarios:
  - Image-level Classification. The [CelebA](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) dataset contains 40 tasks.
  - Regression. The QM9 dataset contains 11 tasks, which can be downloaded automatically from Pytorch Geometric.
- - Dense Prediction. The [NYU-v2](https://github.com/lorenmt/mtan) dataset contains 3 tasks and the [Cityscapes](https://github.com/lorenmt/mtan) dataset contains 2 tasks.
+ - Dense Prediction. The [NYU-v2](https://github.com/lorenmt/mtan) dataset contains 3 tasks and the [Cityscapes](https://github.com/lorenmt/mtan) dataset (UPDATE: the small version) contains 2 tasks.
 
 ### Setup Environment
 Following [Nash-MTL](https://github.com/AvivNavon/nash-mtl) and [FAMO](https://github.com/Cranial-XIX/FAMO), we implement our method with the `MTL` library.
