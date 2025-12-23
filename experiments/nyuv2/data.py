@@ -34,7 +34,7 @@ class RandomScaleCrop(object):
         ).squeeze(0)
         label_ = (
             F.interpolate(
-                label[None, None, i : i + h, j : j + w],
+                label[None, None, i : i + h, j : j + w].float(),
                 size=(height, width),
                 mode="nearest",
             )
@@ -42,7 +42,7 @@ class RandomScaleCrop(object):
             .squeeze(0)
         )
         depth_ = F.interpolate(
-            depth[None, :, i : i + h, j : j + w], size=(height, width), mode="nearest"
+            depth[None, :, i : i + h, j : j + w].float(), size=(height, width), mode="nearest"
         ).squeeze(0)
         normal_ = F.interpolate(
             normal[None, :, i : i + h, j : j + w],
