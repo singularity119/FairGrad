@@ -181,10 +181,136 @@ def main(path, lr, bs, device):
         # evaluating test data
         model.eval()
         conf_mat = ConfMatrix(model.segnet.class_nb)
+        # with torch.no_grad():  # operations inside don't track history
+        #     test_dataset = iter(test_loader)
+        #     for k in range(test_batch):
+        #         test_data, test_label, test_depth, test_normal = test_dataset.next()
+        #         test_data, test_label = test_data.to(device), test_label.long().to(
+        #             device
+        #         )
+        #         test_depth, test_normal = test_depth.to(device), test_normal.to(device)
+
+        #         test_pred = model(test_data)
+        #         test_loss = torch.stack(
+        #             (
+        #                 calc_loss(test_pred[0], test_label, "semantic"),
+        #                 calc_loss(test_pred[1], test_depth, "depth"),
+        #                 calc_loss(test_pred[2], test_normal, "normal"),
+        #             )
+        #         )
+
+        #         conf_mat.update(test_pred[0].argmax(1).flatten(), test_label.flatten())
+
+        #         cost[12] = test_loss[0].item()
+        #         cost[15] = test_loss[1].item()
+        #         cost[16], cost[17] = depth_error(test_pred[1], test_depth)
+        #         cost[18] = test_loss[2].item()
+        #         cost[19], cost[20], cost[21], cost[22], cost[23] = normal_error(
+        #             test_pred[2], test_normal
+        #         )
+        #         avg_cost[epoch, 12:] += cost[12:] / test_batch
+
+        #     # compute mIoU and acc
+        #     avg_cost[epoch, 13:15] = conf_mat.get_metrics()
+
+        #     # Test Delta_m
+        #     test_delta_m = delta_fn(
+        #         avg_cost[epoch, [13, 14, 16, 17, 19, 20, 21, 22, 23]]
+        #     )
+        #     deltas[epoch] = test_delta_m
+
+        #     # print results
+        #     print(
+        #         f"LOSS FORMAT: SEMANTIC_LOSS MEAN_IOU PIX_ACC | DEPTH_LOSS ABS_ERR REL_ERR "
+        #         f"| NORMAL_LOSS MEAN MED <11.25 <22.5 <30 | ∆m (test)"
+        #     )
+        #     print(
+        #         f"Epoch: {epoch:04d} | TRAIN: {avg_cost[epoch, 0]:.4f} {avg_cost[epoch, 1]:.4f} {avg_cost[epoch, 2]:.4f} "
+        #         f"| {avg_cost[epoch, 3]:.4f} {avg_cost[epoch, 4]:.4f} {avg_cost[epoch, 5]:.4f} | {avg_cost[epoch, 6]:.4f} "
+        #         f"{avg_cost[epoch, 7]:.4f} {avg_cost[epoch, 8]:.4f} {avg_cost[epoch, 9]:.4f} {avg_cost[epoch, 10]:.4f} {avg_cost[epoch, 11]:.4f} || "
+        #         f"TEST: {avg_cost[epoch, 12]:.4f} {avg_cost[epoch, 13]:.4f} {avg_cost[epoch, 14]:.4f} | "
+        #         f"{avg_cost[epoch, 15]:.4f} {avg_cost[epoch, 16]:.4f} {avg_cost[epoch, 17]:.4f} | {avg_cost[epoch, 18]:.4f} "
+        #         f"{avg_cost[epoch, 19]:.4f} {avg_cost[epoch, 20]:.4f} {avg_cost[epoch, 21]:.4f} {avg_cost[epoch, 22]:.4f} {avg_cost[epoch, 23]:.4f} "
+        #         f"| {test_delta_m:.3f}"
+        #     )
+
+        #     if wandb.run is not None:
+        #         wandb.log({"Train Semantic Loss": avg_cost[epoch, 0]}, step=epoch)
+        #         wandb.log({"Train Mean IoU": avg_cost[epoch, 1]}, step=epoch)
+        #         wandb.log({"Train Pixel Accuracy": avg_cost[epoch, 2]}, step=epoch)
+        #         wandb.log({"Train Depth Loss": avg_cost[epoch, 3]}, step=epoch)
+        #         wandb.log({"Train Absolute Error": avg_cost[epoch, 4]}, step=epoch)
+        #         wandb.log({"Train Relative Error": avg_cost[epoch, 5]}, step=epoch)
+        #         wandb.log({"Train Normal Loss": avg_cost[epoch, 6]}, step=epoch)
+        #         wandb.log({"Train Loss Mean": avg_cost[epoch, 7]}, step=epoch)
+        #         wandb.log({"Train Loss Med": avg_cost[epoch, 8]}, step=epoch)
+        #         wandb.log({"Train Loss <11.25": avg_cost[epoch, 9]}, step=epoch)
+        #         wandb.log({"Train Loss <22.5": avg_cost[epoch, 10]}, step=epoch)
+        #         wandb.log({"Train Loss <30": avg_cost[epoch, 11]}, step=epoch)
+
+        #         wandb.log({"Test Semantic Loss": avg_cost[epoch, 12]}, step=epoch)
+        #         wandb.log({"Test Mean IoU": avg_cost[epoch, 13]}, step=epoch)
+        #         wandb.log({"Test Pixel Accuracy": avg_cost[epoch, 14]}, step=epoch)
+        #         wandb.log({"Test Depth Loss": avg_cost[epoch, 15]}, step=epoch)
+        #         wandb.log({"Test Absolute Error": avg_cost[epoch, 16]}, step=epoch)
+        #         wandb.log({"Test Relative Error": avg_cost[epoch, 17]}, step=epoch)
+        #         wandb.log({"Test Normal Loss": avg_cost[epoch, 18]}, step=epoch)
+        #         wandb.log({"Test Loss Mean": avg_cost[epoch, 19]}, step=epoch)
+        #         wandb.log({"Test Loss Med": avg_cost[epoch, 20]}, step=epoch)
+        #         wandb.log({"Test Loss <11.25": avg_cost[epoch, 21]}, step=epoch)
+        #         wandb.log({"Test Loss <22.5": avg_cost[epoch, 22]}, step=epoch)
+        #         wandb.log({"Test Loss <30": avg_cost[epoch, 23]}, step=epoch)
+        #         wandb.log({"Test ∆m": test_delta_m}, step=epoch)
+
+
+
+        #     keys = [
+        #         "Train Semantic Loss",
+        #         "Train Mean IoU",
+        #         "Train Pixel Accuracy",
+        #         "Train Depth Loss",
+        #         "Train Absolute Error",
+        #         "Train Relative Error",
+        #         "Train Normal Loss",
+        #         "Train Loss Mean",
+        #         "Train Loss Med",
+        #         "Train Loss <11.25",
+        #         "Train Loss <22.5",
+        #         "Train Loss <30",
+
+        #         "Test Semantic Loss",
+        #         "Test Mean IoU",
+        #         "Test Pixel Accuracy",
+        #         "Test Depth Loss",
+        #         "Test Absolute Error",
+        #         "Test Relative Error",
+        #         "Test Normal Loss",
+        #         "Test Loss Mean",
+        #         "Test Loss Med",
+        #         "Test Loss <11.25",
+        #         "Test Loss <22.5",
+        #         "Test Loss <30"
+        #     ]
+
+
+        #     if "famo" in args.method:
+        #         name = f"{args.method}_gamma{args.gamma}_sd{args.seed}"
+        #     elif "fairgrad" in args.method:
+        #         name = f"{args.method}_alpha{args.alpha}_sd{args.seed}"
+        #     else:
+        #         name = f"{args.method}_sd{args.seed}"
+
+        #     torch.save({
+        #         "delta_m": deltas,
+        #         "keys": keys,
+        #         "avg_cost": avg_cost,
+        #         "losses": loss_list,
+        #     }, f"./save/{name}.stats")
+
         with torch.no_grad():  # operations inside don't track history
             test_dataset = iter(test_loader)
             for k in range(test_batch):
-                test_data, test_label, test_depth, test_normal = test_dataset.next()
+                test_data, test_label, test_depth, test_normal = next(test_dataset)#test_dataset.next()
                 test_data, test_label = test_data.to(device), test_label.long().to(
                     device
                 )
@@ -233,6 +359,29 @@ def main(path, lr, bs, device):
                 f"{avg_cost[epoch, 19]:.4f} {avg_cost[epoch, 20]:.4f} {avg_cost[epoch, 21]:.4f} {avg_cost[epoch, 22]:.4f} {avg_cost[epoch, 23]:.4f} "
                 f"| {test_delta_m:.3f}"
             )
+
+            # 每 10 个 epoch 打印最近 10 个 epoch 的平均性能
+            if (epoch + 1) % 10 == 0:
+                start_idx = epoch + 1 - 10  # 0-based
+                end_idx = epoch + 1         # 右开
+                print(
+                    f"Epoch {start_idx+1}-{end_idx} Average: "
+                    "TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(
+                        np.mean(avg_cost[start_idx:end_idx, 12]),  # Test Semantic Loss
+                        np.mean(avg_cost[start_idx:end_idx, 13]),  # Test Mean IoU
+                        np.mean(avg_cost[start_idx:end_idx, 14]),  # Test Pixel Accuracy
+                        np.mean(avg_cost[start_idx:end_idx, 15]),  # Test Depth Loss
+                        np.mean(avg_cost[start_idx:end_idx, 16]),  # Test Absolute Error
+                        np.mean(avg_cost[start_idx:end_idx, 17]),  # Test Relative Error
+                        np.mean(avg_cost[start_idx:end_idx, 18]),  # Test Normal Loss
+                        np.mean(avg_cost[start_idx:end_idx, 19]),  # Test Loss Mean
+                        np.mean(avg_cost[start_idx:end_idx, 20]),  # Test Loss Med
+                        np.mean(avg_cost[start_idx:end_idx, 21]),  # Test Loss <11.25
+                        np.mean(avg_cost[start_idx:end_idx, 22]),  # Test Loss <22.5
+                        np.mean(avg_cost[start_idx:end_idx, 23]),  # Test Loss <30
+                        np.mean(deltas[start_idx:end_idx]),        # Test ∆m
+                    )
+                )
 
             if wandb.run is not None:
                 wandb.log({"Train Semantic Loss": avg_cost[epoch, 0]}, step=epoch)
@@ -306,7 +455,26 @@ def main(path, lr, bs, device):
                 "avg_cost": avg_cost,
                 "losses": loss_list,
             }, f"./save/{name}.stats")
-
+    # add metrics
+    print("Final Performance: ")
+    final_performance = [
+        np.mean(avg_cost[-10:, 12]),  # Test Semantic Loss
+        np.mean(avg_cost[-10:, 13]),  # Test Mean IoU
+        np.mean(avg_cost[-10:, 14]),  # Test Pixel Accuracy
+        np.mean(avg_cost[-10:, 15]),  # Test Depth Loss
+        np.mean(avg_cost[-10:, 16]),  # Test Absolute Error
+        np.mean(avg_cost[-10:, 17]),  # Test Relative Error
+        np.mean(avg_cost[-10:, 18]),  # Test Normal Loss
+        np.mean(avg_cost[-10:, 19]),  # Test Loss Mean
+        np.mean(avg_cost[-10:, 20]),  # Test Loss Med
+        np.mean(avg_cost[-10:, 21]),  # Test Loss <11.25
+        np.mean(avg_cost[-10:, 22]),  # Test Loss <22.5
+        np.mean(avg_cost[-10:, 23]),  # Test Loss <30
+        np.mean(deltas[-10:])         # Test Delta_m
+    ]
+    
+    print('TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'
+            .format(*final_performance))
 
 if __name__ == "__main__":
     parser = ArgumentParser("NYUv2", parents=[common_parser])
