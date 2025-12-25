@@ -99,6 +99,169 @@ def main(path, lr, bs, device):
     # some extra statistics we save during training
     loss_list = []
 
+    # for epoch in epoch_iter:
+    #     cost = np.zeros(12, dtype=np.float32)
+
+    #     for j, batch in enumerate(train_loader):
+    #         custom_step += 1
+
+    #         model.train()
+    #         optimizer.zero_grad()
+
+    #         train_data, train_label, train_depth = batch
+    #         train_data, train_label = train_data.to(device), train_label.long().to(
+    #             device
+    #         )
+    #         train_depth = train_depth.to(device)
+
+    #         train_pred, features = model(train_data, return_representation=True)
+
+    #         losses = torch.stack(
+    #             (
+    #                 calc_loss(train_pred[0], train_label, "semantic"),
+    #                 calc_loss(train_pred[1], train_depth, "depth"),
+    #             )
+    #         )
+
+    #         loss, extra_outputs = weight_method.backward(
+    #             losses=losses,
+    #             shared_parameters=list(model.shared_parameters()),
+    #             task_specific_parameters=list(model.task_specific_parameters()),
+    #             last_shared_parameters=list(model.last_shared_parameters()),
+    #             representation=features,
+    #         )
+    #         loss_list.append(losses.detach().cpu())
+    #         optimizer.step()
+
+    #         if "famo" in args.method:
+    #             with torch.no_grad():
+    #                 train_pred = model(train_data, return_representation=False)
+    #                 new_losses = torch.stack(
+    #                     (
+    #                         calc_loss(train_pred[0], train_label, "semantic"),
+    #                         calc_loss(train_pred[1], train_depth, "depth"),
+    #                     )
+    #                 )
+    #                 weight_method.method.update(new_losses.detach())
+
+    #         # accumulate label prediction for every pixel in training images
+    #         conf_mat.update(train_pred[0].argmax(1).flatten(), train_label.flatten())
+
+    #         cost[0] = losses[0].item()
+    #         cost[3] = losses[1].item()
+    #         cost[4], cost[5] = depth_error(train_pred[1], train_depth)
+    #         avg_cost[epoch, :6] += cost[:6] / train_batch
+
+    #         epoch_iter.set_description(
+    #             f"[{epoch+1}  {j+1}/{train_batch}] semantic loss: {losses[0].item():.3f}, "
+    #             f"depth loss: {losses[1].item():.3f}, "
+    #         )
+
+    #     # scheduler
+    #     scheduler.step()
+    #     # compute mIoU and acc
+    #     avg_cost[epoch, 1:3] = conf_mat.get_metrics()
+
+    #     # todo: move evaluate to function?
+    #     # evaluating test data
+    #     model.eval()
+    #     conf_mat = ConfMatrix(model.segnet.class_nb)
+    #     with torch.no_grad():  # operations inside don't track history
+    #         test_dataset = iter(test_loader)
+    #         for k in range(test_batch):
+    #             test_data, test_label, test_depth = test_dataset.next()
+    #             test_data, test_label = test_data.to(device), test_label.long().to(
+    #                 device
+    #             )
+    #             test_depth = test_depth.to(device)
+
+    #             test_pred = model(test_data)
+    #             test_loss = torch.stack(
+    #                 (
+    #                     calc_loss(test_pred[0], test_label, "semantic"),
+    #                     calc_loss(test_pred[1], test_depth, "depth"),
+    #                 )
+    #             )
+
+    #             conf_mat.update(test_pred[0].argmax(1).flatten(), test_label.flatten())
+
+    #             cost[6] = test_loss[0].item()
+    #             cost[9] = test_loss[1].item()
+    #             cost[10], cost[11] = depth_error(test_pred[1], test_depth)
+    #             avg_cost[epoch, 6:] += cost[6:] / test_batch
+
+    #         # compute mIoU and acc
+    #         avg_cost[epoch, 7:9] = conf_mat.get_metrics()
+
+    #         # Test Delta_m
+    #         test_delta_m = delta_fn(
+    #             avg_cost[epoch, [7, 8, 10, 11]]
+    #         )
+    #         deltas[epoch] = test_delta_m
+
+    #         # print results
+    #         print(
+    #             f"LOSS FORMAT: SEMANTIC_LOSS MEAN_IOU PIX_ACC | DEPTH_LOSS ABS_ERR REL_ERR "
+    #         )
+    #         print(
+    #             f"Epoch: {epoch:04d} | TRAIN: {avg_cost[epoch, 0]:.4f} {avg_cost[epoch, 1]:.4f} {avg_cost[epoch, 2]:.4f} "
+    #             f"| {avg_cost[epoch, 3]:.4f} {avg_cost[epoch, 4]:.4f} {avg_cost[epoch, 5]:.4f} | {avg_cost[epoch, 6]:.4f} "
+    #             f"TEST: {avg_cost[epoch, 7]:.4f} {avg_cost[epoch, 8]:.4f} {avg_cost[epoch, 9]:.4f} | "
+    #             f"{avg_cost[epoch, 10]:.4f} {avg_cost[epoch, 11]:.4f}"
+    #             f"| {test_delta_m:.3f}"
+    #         )
+
+    #         if wandb.run is not None:
+    #             wandb.log({"Train Semantic Loss": avg_cost[epoch, 0]}, step=epoch)
+    #             wandb.log({"Train Mean IoU": avg_cost[epoch, 1]}, step=epoch)
+    #             wandb.log({"Train Pixel Accuracy": avg_cost[epoch, 2]}, step=epoch)
+    #             wandb.log({"Train Depth Loss": avg_cost[epoch, 3]}, step=epoch)
+    #             wandb.log({"Train Absolute Error": avg_cost[epoch, 4]}, step=epoch)
+    #             wandb.log({"Train Relative Error": avg_cost[epoch, 5]}, step=epoch)
+
+    #             wandb.log({"Test Semantic Loss": avg_cost[epoch, 6]}, step=epoch)
+    #             wandb.log({"Test Mean IoU": avg_cost[epoch, 7]}, step=epoch)
+    #             wandb.log({"Test Pixel Accuracy": avg_cost[epoch, 8]}, step=epoch)
+    #             wandb.log({"Test Depth Loss": avg_cost[epoch, 9]}, step=epoch)
+    #             wandb.log({"Test Absolute Error": avg_cost[epoch, 10]}, step=epoch)
+    #             wandb.log({"Test Relative Error": avg_cost[epoch, 11]}, step=epoch)
+    #             wandb.log({"Test ∆m": test_delta_m}, step=epoch)
+
+
+
+    #         keys = [
+    #             "Train Semantic Loss",
+    #             "Train Mean IoU",
+    #             "Train Pixel Accuracy",
+    #             "Train Depth Loss",
+    #             "Train Absolute Error",
+    #             "Train Relative Error",
+
+    #             "Test Semantic Loss",
+    #             "Test Mean IoU",
+    #             "Test Pixel Accuracy",
+    #             "Test Depth Loss",
+    #             "Test Absolute Error",
+    #             "Test Relative Error",
+    #         ]
+
+    #         if "famo" in args.method:
+    #             name = f"{args.method}_gamma{args.gamma}_sd{args.seed}"
+    #         elif "fairgrad" in args.method:
+    #             name = f"{args.method}_alpha{args.alpha}_sd{args.seed}"
+    #         else:
+    #             name = f"{args.method}_sd{args.seed}"
+
+    #         torch.save({
+    #             "delta_m": deltas,
+    #             "keys": keys,
+    #             "avg_cost": avg_cost,
+    #             "losses": loss_list,
+    #         }, f"./save/{name}.stats")
+
+
+
+
     for epoch in epoch_iter:
         cost = np.zeros(12, dtype=np.float32)
 
@@ -169,7 +332,7 @@ def main(path, lr, bs, device):
         with torch.no_grad():  # operations inside don't track history
             test_dataset = iter(test_loader)
             for k in range(test_batch):
-                test_data, test_label, test_depth = test_dataset.next()
+                test_data, test_label, test_depth = next(test_dataset)
                 test_data, test_label = test_data.to(device), test_label.long().to(
                     device
                 )
@@ -199,7 +362,7 @@ def main(path, lr, bs, device):
             )
             deltas[epoch] = test_delta_m
 
-            # print results
+            # print results (当前 epoch)
             print(
                 f"LOSS FORMAT: SEMANTIC_LOSS MEAN_IOU PIX_ACC | DEPTH_LOSS ABS_ERR REL_ERR "
             )
@@ -210,6 +373,23 @@ def main(path, lr, bs, device):
                 f"{avg_cost[epoch, 10]:.4f} {avg_cost[epoch, 11]:.4f}"
                 f"| {test_delta_m:.3f}"
             )
+
+            # 每 10 个 epoch 打印最近 10 个 epoch 的平均性能
+            if (epoch + 1) % 10 == 0:
+                start_idx = epoch + 1 - 10  # 0-based
+                end_idx = epoch + 1         # 右开
+                print(
+                    f"Epoch {start_idx+1}-{end_idx} Average: "
+                    "TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(
+                        np.mean(avg_cost[start_idx:end_idx, 6]),
+                        np.mean(avg_cost[start_idx:end_idx, 7]),
+                        np.mean(avg_cost[start_idx:end_idx, 8]),
+                        np.mean(avg_cost[start_idx:end_idx, 9]),
+                        np.mean(avg_cost[start_idx:end_idx, 10]),
+                        np.mean(avg_cost[start_idx:end_idx, 11]),
+                        np.mean(deltas[start_idx:end_idx]),
+                    )
+                )
 
             if wandb.run is not None:
                 wandb.log({"Train Semantic Loss": avg_cost[epoch, 0]}, step=epoch)
@@ -258,6 +438,21 @@ def main(path, lr, bs, device):
                 "avg_cost": avg_cost,
                 "losses": loss_list,
             }, f"./save/{name}.stats")
+    
+    
+    print("Final Performance: ")
+    print(
+        "TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(
+            np.mean(avg_cost[-10:, 6]),
+            np.mean(avg_cost[-10:, 7]),
+            np.mean(avg_cost[-10:, 8]),
+            np.mean(avg_cost[-10:, 9]),
+            np.mean(avg_cost[-10:, 10]),
+            np.mean(avg_cost[-10:, 11]),
+            np.mean(deltas[-10:]),
+        )
+    )
+
 
 
 if __name__ == "__main__":
@@ -266,7 +461,8 @@ if __name__ == "__main__":
         data_path=os.path.join(os.getcwd(), "dataset"),
         lr=1e-4,
         n_epochs=200,
-        batch_size=8,
+        #batch_size=8,
+        batch_size=1,
     )
     parser.add_argument(
         "--model",
