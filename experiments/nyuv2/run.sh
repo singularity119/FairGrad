@@ -1,27 +1,32 @@
-mkdir -p ./save
-mkdir -p ./trainlogs
+# --- 1. 定义 AutoDL 输出路径 ---
+EXP_ROOT="/root/autodl-tmp/experiment/nyuv2_experiment"
+SAVE_DIR="$EXP_ROOT/save"
+LOG_DIR="$EXP_ROOT/trainlogs"
 
-# --- 自动选择空闲 GPU 的逻辑 ---
-# 获取显存占用最低的 GPU ID
-# nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 会返回每块卡的显存占用
-# sort -n 按数值排序，head -n 1 取最小值，cut 获取对应的原始索引
-# export CUDA_VISIBLE_DEVICES=$(nvidia-smi --query-gpu=index,memory.used --format=csv,noheader,nounits | sort -k2 -n | head -n 1 | cut -d ',' -f 1)
+# --- 2. 创建目录 ---
+mkdir -p "$SAVE_DIR"
+mkdir -p "$LOG_DIR"
 
- export CUDA_VISIBLE_DEVICES=7
-
-
-echo "Selected GPU: $CUDA_VISIBLE_DEVICES"
+# --- 3. GPU 设置 ---
+export CUDA_VISIBLE_DEVICES=5
+# 解释：将项目根目录 /root/FairGrad 添加到 PYTHONPATH
+# 这样 Python 就能找到 experiments.nyuv2.data 等模块了
+export PYTHONPATH=$PYTHONPATH:/root/FairGrad
+echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
 method=cagrad
 alpha=2.0
-seed=0
+seed=5
 
-# nohup python -u trainer.py --method=$method --seed=$seed --alpha=$alpha > trainlogs/$method-alpha$alpha-sd$seed.log 2>&1 &
-
+# --- 4. 运行训练 ---
+# 注意：我们增加了 --save-dir 参数来指定输出位置
 nohup python -u trainer.py \
     --method=$method \
     --seed=$seed \
     --alpha=$alpha \
     --gpu 0 \
-    --data-path /data2/huangxutao/projects/FairGrad/experiments/nyuv2/dataset \
-    > trainlogs/$method-alpha$alpha-sd$seed.log 2>&1 &
+    --data-path /root/autodl-tmp/dataset/nyuv2 \
+    --save-dir "$SAVE_DIR" \
+    > "$LOG_DIR/$method-alpha$alpha-sd$seed.log" 2>&1 &
+
+echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed.log"
