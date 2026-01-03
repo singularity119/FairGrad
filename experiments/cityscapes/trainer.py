@@ -437,7 +437,7 @@ def main(path, lr, bs, device):
                 "keys": keys,
                 "avg_cost": avg_cost,
                 "losses": loss_list,
-            }, f"./save/{name}.stats")
+            }, os.path.join(args.save_dir, f"{name}.stats"))
     
     
     print("Final Performance: ")
@@ -476,10 +476,17 @@ if __name__ == "__main__":
     )
     parser.add_argument("--wandb_project", type=str, default=None, help="Name of Weights & Biases Project.")
     parser.add_argument("--wandb_entity", type=str, default=None, help="Name of Weights & Biases Entity.")
+    parser.add_argument("--save-dir", type=str, default="./save", help="Directory to save the results.")
     args = parser.parse_args()
 
     # set seed
     set_seed(args.seed)
+
+    # 打印 GPU 信息到日志
+    print(f"=== Experiment Setup ===")
+    print(f"CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'Not Set')}")
+    print(f"Selected Local GPU ID: {args.gpu}")
+    print(f"========================")
 
     if args.wandb_project is not None:
         wandb.init(project=args.wandb_project, entity=args.wandb_entity, config=args)
