@@ -98,11 +98,11 @@ def main(path, lr, bs, device):
     best_val_f1 = 0.0
     best_epoch = None
 
-    for epoch in tqdm.tqdm(range(epochs), desc="Total Progress"):
+    for epoch in range(epochs):
         # training
         model.train()
         t0 = time.time()
-        for x, y in tqdm.tqdm(train_loader, desc=f"Epoch {epoch+1} [train]", leave=False):
+        for x, y in tqdm.tqdm(train_loader, desc=f"[{epoch+1}/{epochs}] Train", ascii=True, mininterval=10):
             x = x.to(device)
             y = [y_.to(device) for y_ in y]
             y_ = model(x)
@@ -126,7 +126,7 @@ def main(path, lr, bs, device):
         # validation
         metric.reset()
         with torch.no_grad():
-            for x, y in tqdm.tqdm(val_loader, desc=f"Epoch {epoch+1} [val]", leave=False):
+            for x, y in tqdm.tqdm(val_loader, desc=f"[{epoch+1}/{epochs}] Val  ", ascii=True, mininterval=10):
                 x = x.to(device)
                 y = [y_.to(device) for y_ in y]
                 y_ = model(x)
@@ -140,7 +140,7 @@ def main(path, lr, bs, device):
         # testing
         metric.reset()
         with torch.no_grad():
-            for x, y in tqdm.tqdm(test_loader, desc=f"Epoch {epoch+1} [test]", leave=False):
+            for x, y in tqdm.tqdm(test_loader, desc=f"[{epoch+1}/{epochs}] Test ", ascii=True, mininterval=10):
                 x = x.to(device)
                 y = [y_.to(device) for y_ in y]
                 y_ = model(x)
