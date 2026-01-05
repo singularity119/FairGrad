@@ -20,6 +20,22 @@ from experiments.utils import (
 )
 from methods.weight_methods import WeightMethods
 
+def delta_fn(a):
+    BASE = np.array(
+    [0.6736886,  0.68121034, 0.81524944, 0.5760289,  0.7205613,  0.8555076,
+ 0.38203922, 0.58225113, 0.787647,   0.8321292,  0.5029583,  0.68694085,
+ 0.6781237,  0.5240381,  0.5161666,  0.95694304, 0.6968786,  0.67976356,
+ 0.8808315,  0.8582131,  0.97034,    0.93267566, 0.5057539,  0.40307626,
+ 0.9703734,  0.48644206, 0.60786104, 0.5261031,  0.56907415, 0.59815097,
+ 0.6858371,  0.924108,   0.5424991,  0.7406311,  0.71019936, 0.87365365,
+ 0.9305602,  0.33704284, 0.7647628,  0.91907   ])  # base results from FAMO
+    SIGN = np.ones(40, dtype='int64')
+    KK = np.ones(40) * -1
+    
+    return (KK ** SIGN * (a - BASE) / BASE).mean() * 100.0  # * 100 for percentage
+
+
+
 
 class CelebaMetrics():
     """
@@ -133,8 +149,11 @@ def main(path, lr, bs, device):
         test_f1 = metric.result()
         metrics[epoch] = test_f1
 
+        test_delta_m = delta_fn(test_f1)
+
         t2 = time.time()
-        print(f"[info] epoch {epoch+1} | train takes {(t1-t0)/60:.1f} min | test takes {(t2-t1)/60:.1f} min")
+        print(f"[info] epoch {epoch+1} | train takes {(t1-t0)/60:.1f} min | test takes {(t2-t1)/60:.1f} min| delta m {test_delta_m:2f}")
+        
         if "famo" in args.method:
             name = f"{args.method}_gamma{args.gamma}_sd{args.seed}"
         elif "fairgrad" in args.method:
