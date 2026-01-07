@@ -14,7 +14,7 @@ echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
 method=fairgrad
 alpha=2.0
-seed=1        # 师兄建议先试种子 1
+seed=1        # 师兄建议先试种子 1 6 7
 sigma=1e-4    # 扰动强度
 noise_seed=101     #101 102 103 104 105
 
