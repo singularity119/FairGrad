@@ -68,7 +68,7 @@ def main(path, lr, bs, device):
         with torch.no_grad():
             for p in model.parameters():
                 p.add_(torch.randn_like(p) * args.perturb_sigma)
-                
+
         # 【步骤 D】恢复原始随机状态
         if args.noise_seed is not None:
             torch.set_rng_state(torch_state)
@@ -488,8 +488,7 @@ if __name__ == "__main__":
         data_path=os.path.join(os.getcwd(), "dataset"),
         lr=1e-4,
         n_epochs=200,
-        #batch_size=8,
-        batch_size=1,
+        batch_size=8
     )
     parser.add_argument(
         "--model",

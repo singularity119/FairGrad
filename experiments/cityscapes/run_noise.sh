@@ -32,7 +32,7 @@ do
         --perturb-sigma=$sigma \
         --noise-seed=$ns \
         --gpu 0 \
-        --data-path /root/autodl-tmp/dataset/cityscapes \
+        --data-path /root/autodl-tmp/dataset/cityscapes2 \
         --save-dir "$SAVE_DIR" \
         > "$LOG_DIR/$method-alpha$alpha-sd$seed-ns$ns.log" 2>&1
         

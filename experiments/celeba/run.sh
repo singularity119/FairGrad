@@ -13,9 +13,9 @@ export CUDA_VISIBLE_DEVICES=0
 export PYTHONPATH=$PYTHONPATH:/root/FairGrad
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
-method=cagrad
+method=fairgrad
 alpha=2.0
-seed=0
+seed=2
 
 # --- 4. 运行训练 ---
 nohup python -u trainer.py \
