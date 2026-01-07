@@ -53,7 +53,7 @@ def main(path, lr, bs, device):
 
     # dataset and dataloaders
     log_str = (
-        "Applying data augmentation on NYUv2."
+        "Applying data augmentation on Cityscapes2."
         if args.apply_augmentation
         else "Standard training strategy without data augmentation."
     )
