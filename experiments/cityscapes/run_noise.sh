@@ -16,27 +16,23 @@ method=fairgrad
 alpha=2.0
 seed=1        # 师兄建议先试种子 1
 sigma=1e-4    # 扰动强度
+noise_seed=101     #101 102 103 104 105
 
-# --- 4. 运行训练 (循环运行 5 次不同扰动的实验) ---
-# 我们使用不同的 noise-seed (101 到 105) 来产生不同的随机扰动
-for ns in 101 102 103 104 105
-do
-    echo "Starting experiment with seed=$seed, noise-seed=$ns..."
+
+echo "Starting experiment with seed=$seed, noise-seed=$noise_seed..."
     
     # 注意：这里去掉了末尾的 &，改为顺序执行，防止显存溢出。
     # 如果你想同时后台跑，请确保显存足够并加上 &。
-    python -u trainer_noise.py \
+nohup python -u trainer_noise.py \
         --method=$method \
         --seed=$seed \
         --alpha=$alpha \
         --perturb-sigma=$sigma \
-        --noise-seed=$ns \
+        --noise-seed=$noise_seed \
         --gpu 0 \
         --data-path /root/autodl-tmp/dataset/cityscapes2 \
         --save-dir "$SAVE_DIR" \
-        > "$LOG_DIR/$method-alpha$alpha-sd$seed-ns$ns.log" 2>&1
+        > "$LOG_DIR/$method-alpha$alpha-sd$seed-ns$noise_seed.log" 2>&1 &
         
-    echo "Finished experiment with noise-seed=$ns. Results in $LOG_DIR"
-done
+echo "Finished experiment with noise-seed=$noise_seed. Results in $LOG_DIR"
 
-echo "All 5 perturbation experiments for seed $seed are completed."
