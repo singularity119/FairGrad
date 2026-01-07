@@ -87,11 +87,11 @@ def main(path, lr, bs, device, args):
             init_epochs=args.init_epochs,
         )
 
-    elif args.init_type == "rbd_multitask_curvature_spectral_once":
+    elif args.init_type == "rbd_multitask_curvature_clustering_once":
         init_data_loader = torch.utils.data.DataLoader(
             dataset=train_set, batch_size=bs, shuffle=True, num_workers=2
         )
-        model = rbd_init_multitask_curvature_spectral_once(
+        model = rbd_init_multitask_curvature_clustering_once(
             model,
             init_data_loader,
             device,
@@ -207,7 +207,7 @@ if __name__ == "__main__":
         "--init_type",
         type=str,
         default=None,
-        choices=["rbd_multitask_curvature_fullspace", "rbd_multitask_curvature_spectral_once", None],
+        choices=["rbd_multitask_curvature_fullspace", "rbd_multitask_curvature_clustering_once", None],
         help="initialization type (if not specified, skip initialization)",
     )
     parser.add_argument(
@@ -231,7 +231,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--beta_init",
         type=float,
-        default=0.9,
+        default=0.0,
         help="momentum beta used during initialization",
     )
    

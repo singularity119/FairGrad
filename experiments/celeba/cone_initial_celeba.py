@@ -101,7 +101,7 @@ def estimate_task_curvature_single(
         loss0,
         param_list,
         create_graph=False,
-        allow_unused=True,  # 有的参数可能没用到
+        allow_unused=True,  # 有有的参数可能没用到
     )
 
     g0_list = []
@@ -416,7 +416,6 @@ def rbd_init_multitask_curvature_fullspace(
     - 仍然对每个任务做梯度正交投影，保持一阶 loss 不变
     - 只保留 1 个曲率相关超参 curv_maximize_weight（整体步长）
     """
-
     model.train()
 
     # ---------- collect shared params ----------
@@ -505,7 +504,7 @@ def rbd_init_multitask_curvature_fullspace(
                 estimate_task_curvature_single(
                     model, params, fn,
                     num_probes=num_curv_probes, sigma=curv_sigma, device=device)
-                for fn in forward_funcs
+                for fn in forward_fns
             ]
 
             # curvature at theta - eps*P*h
@@ -514,7 +513,7 @@ def rbd_init_multitask_curvature_fullspace(
                 estimate_task_curvature_single(
                     model, params, fn,
                     num_probes=num_curv_probes, sigma=curv_sigma, device=device)
-                for fn in forward_funcs
+                for fn in forward_fns
             ]
 
             # restore θ
@@ -590,25 +589,21 @@ def rbd_init_multitask_curvature_fullspace(
     return model
 
 
-
-
-
-
-def rbd_init_multitask_curvature_spectral_once(
+def rbd_init_multitask_curvature_clustering_once(
     model,
     init_data_loader,
-    device,
+    device, 
     steps=50,
     lr=1e-3,
     beta=0.9,
     init_epochs=1,
-    curv_maximize_weight=1.0,
-    grad_est_eps=1.0,
+    curv_maximize_weight=1,
+    grad_est_eps=1e-3,
     num_curv_probes=5,
-    curv_sigma=1e-4,
-    num_clusters=3,
+    curv_sigma=1e-3,
+    num_clusters=8,
     warmup_steps=10,
-    ratio=0.7,              # ← 你原来就有的
+    ratio=0.9,              # ← 你原来就有的
     base_penalty=1.0        # ← 你原来就有的
 ):
     """
@@ -619,7 +614,6 @@ def rbd_init_multitask_curvature_spectral_once(
         * K > 0 : weak suppression
         * K < 0 : stronger pull-back
     """
-
     model.train()
 
     # ---------- collect shared params ----------
@@ -649,7 +643,7 @@ def rbd_init_multitask_curvature_spectral_once(
                 p.copy_(theta[idx:idx+n].view_as(p))
                 idx += n
 
-    print(f"✨ RBD-init | spectral once | ratio={ratio}")
+    print(f"✨ RBD-init | clustering once | ratio={ratio}, num_clusters={num_clusters}, base_penalty={base_penalty}, curv_maximize_weight={curv_maximize_weight}, grad_est_eps={grad_est_eps}, num_curv_probes={num_curv_probes}, curv_sigma={curv_sigma}, warmup_steps={warmup_steps}")
 
     # ---------- warmup buffers ----------
     grad_accum = [torch.zeros(D, device=device) for _ in range(n_tasks)]
@@ -664,7 +658,6 @@ def rbd_init_multitask_curvature_spectral_once(
     pos_ratio_threshold = 0.6  # 单个 step 内，K>0 的任务比例阈值
     pos_ratio_window = []
     early_stop = False
-
 
     for epoch in range(init_epochs):
         for step, batch in enumerate(init_data_loader):
@@ -715,7 +708,7 @@ def rbd_init_multitask_curvature_spectral_once(
                     G = torch.stack([grad_accum[t]/(grad_accum[t].norm() + 1e-12) for t in range(n_tasks)])
 
                     S = (G @ G.T).cpu().numpy()
-                    S = np.clip(S, 0.0, None)
+                    S = S + 1.0
 
                     sc = SpectralClustering(
                         n_clusters=num_clusters,
@@ -780,11 +773,11 @@ def rbd_init_multitask_curvature_spectral_once(
 
             num_steps_high = sum(1 for r in pos_ratio_window if r >= pos_ratio_threshold)
             if (len(pos_ratio_window) == early_stop_window and
-                    num_steps_high >= early_stop_window * early_stop_ratio):
+                    num_steps_high >= early_stop_window * early_stop_ratio and pos_ratio >= pos_ratio_threshold):
                 print(
                     f"⏹ Early stopping triggered at epoch {epoch+1}, step {step+1}: "
                     f"{num_steps_high}/{early_stop_window} recent steps have "
-                    f'K>0 ratio > {pos_ratio_threshold:.2f} '
+                    f'K>0 ratio > {pos_ratio_threshold:.2f}, '
                     f"(current step ratio={pos_ratio:.3f})."
                 )
                 early_stop = True
@@ -821,7 +814,7 @@ def rbd_init_multitask_curvature_spectral_once(
 
                 # 3) 生成"cluster-curvature gradient"（现在等价于 3 个任务的 curvature update）
                 #    注意：slope_c 是标量，h 是单位方向向量
-                g_c = (dir_sign * alpha_c * slope_c) * h
+                g_c = curv_maximize_weight * (dir_sign * alpha_c * slope_c) * h
 
                 # 4) cluster-level projection：用 cluster 的"平均梯度方向"做正交化
 
@@ -834,7 +827,7 @@ def rbd_init_multitask_curvature_spectral_once(
             if early_stop:
                 break
 
-            step_dir = curv_maximize_weight * sum(cluster_updates)
+            step_dir = sum(cluster_updates)
             m_full = beta * m_full + (1.0 - beta) * step_dir
             flat_params = theta0 + lr * m_full
 
@@ -843,6 +836,7 @@ def rbd_init_multitask_curvature_spectral_once(
                 f"loss={sum(losses)/len(losses):.4f} | "
                 f"K_min={min(K):.4f} K_max={max(K):.4f} K_mean={K_mean_val:.4f} | "
                 f"curv_slope_min={min(slope):.4f} curv_slope_max={max(slope):.4f} curv_slope_mean={sum(slope)/len(slope):.4f} | "
+                f"pos_ratio={pos_ratio:.3f} | "
                 f"step_norm={step_dir.norm():.3e}"
             )
 
@@ -861,8 +855,12 @@ def rbd_init_multitask_curvature_spectral_once(
         f"Δθ L2 = {delta_norm:.4e} "
         f"(rel={rel_change:.4e} wrt ||θ0||={theta_norm:.4e}, "
         f"max|Δθ_i|={max_abs_change:.4e}), "
-        f"ratio={ratio}, base_penalty={base_penalty}, power=None, num_clusters={num_clusters}, beta={beta}, pos_ratio_threshold={pos_ratio_threshold},early_stop_ratio={early_stop_ratio}"
-        f"early_stop_window={early_stop_window}"
+        f"ratio={ratio}, base_penalty={base_penalty}, power=None, num_clusters={num_clusters}, beta={beta}, pos_ratio_threshold={pos_ratio_threshold}, early_stop_ratio={early_stop_ratio}, "
+        f"early_stop_window={early_stop_window}, "
+        f"grad_est_eps={grad_est_eps}, "
+        f"num_curv_probes={num_curv_probes}, "
+        f"curv_sigma={curv_sigma}, "
+        f"warmup_steps={warmup_steps}"
     )
     print("🎉 RBD-init DONE")
 
