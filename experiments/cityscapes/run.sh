@@ -16,6 +16,7 @@ echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 method=cagrad
 alpha=2.0
 seed=0
+init=kaiming
 
 # --- 4. 运行训练 ---
 # 注意：我们增加了 --save-dir 参数来指定输出位置
@@ -24,8 +25,10 @@ nohup python -u trainer.py \
     --seed=$seed \
     --alpha=$alpha \
     --gpu 0 \
-    --data-path /root/autodl-tmp/dataset/cityscapes \
+    --data-path /root/autodl-tmp/dataset/cityscapes2 \
     --save-dir "$SAVE_DIR" \
-    > "$LOG_DIR/$method-alpha$alpha-sd$seed.log" 2>&1 &
+    > "$LOG_DIR/$method-alpha$alpha-sd$seed-$init.log" 2>&1 &
 
-echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed.log"
+echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed-$init.log"
+
+#echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed.log"
