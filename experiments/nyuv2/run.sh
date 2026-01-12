@@ -14,9 +14,10 @@ export CUDA_VISIBLE_DEVICES=0
 export PYTHONPATH=$PYTHONPATH:/root/FairGrad
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
-method=famo
+method=cagrad
 alpha=2.0
-seed=6
+seed=2
+init=kaiming
 
 # --- 4. 运行训练 ---
 # 注意：我们增加了 --save-dir 参数来指定输出位置
@@ -29,4 +30,5 @@ nohup python -u trainer.py \
     --save-dir "$SAVE_DIR" \
     > "$LOG_DIR/$method-alpha$alpha-sd$seed.log" 2>&1 &
 
-echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed.log"
+echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed-$init.log"
+# echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed.log"
