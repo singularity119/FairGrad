@@ -14,10 +14,11 @@ export CUDA_VISIBLE_DEVICES=0
 export PYTHONPATH=$PYTHONPATH:/root/FairGrad
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
-method=cagrad
+method=famo # famo除了cityscape--gamma 0.01，其余--gamma 0.001 \
 alpha=2.0
 seed=2
-init=kaiming
+init=xaiver
+gamma=0.001
 
 # --- 4. 运行训练 ---
 # 注意：我们增加了 --save-dir 参数来指定输出位置
@@ -25,10 +26,11 @@ nohup python -u trainer.py \
     --method=$method \
     --seed=$seed \
     --alpha=$alpha \
+    --gamma $gamma \
     --gpu 0 \
     --data-path /root/autodl-tmp/dataset/nyuv2 \
     --save-dir "$SAVE_DIR" \
-    > "$LOG_DIR/$method-alpha$alpha-sd$seed-$init.log" 2>&1 &
+    > "$LOG_DIR/$method-alpha$alpha-sd$seed-gamma$gamma-$init.log" 2>&1 &
 
 echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed-$init.log"
 # echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed.log"
