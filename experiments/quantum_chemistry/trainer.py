@@ -236,7 +236,7 @@ def main(
             "avg_cost": avg_cost,
             "losses": loss_list,
             "delta_m": deltas,
-        }, f"./save/{name}.stats")
+        }, os.path.join(args.save_dir, f"{name}.stats"))
 
 
 if __name__ == "__main__":
@@ -251,6 +251,7 @@ if __name__ == "__main__":
     parser.add_argument("--scale-y", default=False, type=str2bool)
     parser.add_argument("--wandb_project", type=str, default=None, help="Name of Weights & Biases Project.")
     parser.add_argument("--wandb_entity", type=str, default=None, help="Name of Weights & Biases Entity.")
+    parser.add_argument("--save-dir", type=str, default="./save", help="Directory to save the results.")
     args = parser.parse_args()
 
     # set seed
