@@ -238,6 +238,18 @@ def main(
             "delta_m": deltas,
         }, os.path.join(args.save_dir, f"{name}.stats"))
 
+    # add metrics
+    print("Final Performance: ")
+    final_performance = [
+        np.mean(avg_cost[-10:, 13]),  # Test Loss (Avg)
+        *np.mean(avg_cost[-10:, 14:25], axis=0),  # Test Task Losses (11 tasks)
+        np.mean(deltas[-10:])  # Test Delta_m
+    ]
+
+    print('TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'
+          .format(*final_performance))
+
+
 
 if __name__ == "__main__":
     parser = ArgumentParser("QM9", parents=[common_parser])
