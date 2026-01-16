@@ -4,6 +4,17 @@ import os
 import numpy as np
 import torch
 import torch.nn.functional as F
+
+# Monkeypatch torch.load to be compatible with torch-geometric 2.6.1 and torch 1.11.0
+import torch.serialization
+import pickle
+original_load = torch.load
+def patched_load(f, map_location=None, pickle_module=pickle, **pickle_load_args):
+    if 'weights_only' in pickle_load_args:
+        del pickle_load_args['weights_only']
+    return original_load(f, map_location, pickle_module, **pickle_load_args)
+torch.load = patched_load
+
 import torch_geometric.transforms as T
 from torch_geometric.datasets import QM9
 from torch_geometric.loader import DataLoader
