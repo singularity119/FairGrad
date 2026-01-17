@@ -13,14 +13,14 @@ export CUDA_VISIBLE_DEVICES=0
 export PYTHONPATH=$PYTHONPATH:/root/FairGrad
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
-method=cagrad
+method=fairgrad
 alpha=2.0
 seed=0
-init=kaiming
+init=xaiver
 
 # --- 4. 运行训练 ---
 # 注意：我们增加了 --save-dir 参数来指定输出位置
-nohup python -u trainer.py \
+nohup python -u trainer_init.py \
     --method=$method \
     --seed=$seed \
     --alpha=$alpha \

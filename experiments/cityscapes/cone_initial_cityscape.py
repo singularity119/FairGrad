@@ -49,14 +49,112 @@ def sample_cone_direction(center, angle, device):
 
     u = u / u_norm
 
-    cos_t = torch.cos(angle)
-    sin_t = torch.sin(angle)
+    cos_t = torch.cos(torch.as_tensor(angle, device=device))
+    sin_t = torch.sin(torch.as_tensor(angle, device=device))
 
     dir_vec = cos_t * center_unit + sin_t * u
     return dir_vec / torch.norm(dir_vec)
 
 
+def estimate_task_curvature_single(
+    model,
+    param_list,
+    forward_fn,
+    num_probes=5,
+    sigma=1e-3,
+    device=None,
+):
+    """
+    在当前 θ 下，用随机探针方向近似一个任务的平均方向曲率:
+        κ ≈ E_v [ v^T H v ]
 
+    - model: 当前模型
+    - param_list: 要估计曲率的参数列表（例如 shared_params）
+    - forward_fn(model) -> scalar loss: 指定任务 loss
+    - num_probes: 随机方向数量
+    - sigma: 有限差分步长，用于梯度差分估计 H v ≈ (g(θ+σv)-g(θ))/σ
+    """
+    if device is None:
+        device = next(model.parameters()).device
+
+    was_training = model.training
+    model.eval()
+
+    # ---------- 1) g(θ) ----------
+    model.zero_grad(set_to_none=True)
+    loss0 = forward_fn(model)
+
+    grads0 = torch.autograd.grad(
+        loss0,
+        param_list,
+        create_graph=False,
+        allow_unused=True,  # 有有的参数可能没用到
+    )
+
+    g0_list = []
+    for g, p in zip(grads0, param_list):
+        if g is None:
+            g0_list.append(torch.zeros_like(p).reshape(-1))
+        else:
+            g0_list.append(g.reshape(-1))
+    g0 = torch.cat(g0_list).to(device)
+
+    D = g0.numel()
+
+    curvature_sum = 0.0
+
+    # ---------- 2) 多个随机 probe ----------
+    for _ in range(num_probes):
+        # 随机单位向量 v
+        v = torch.randn(D, device=device)
+        v = v / (v.norm() + 1e-12)
+
+        # θ ← θ + σ v（注意用 no_grad，避免 leaf inplace 报错）
+        idx = 0
+        for p in param_list:
+            n = p.numel()
+            delta = (sigma * v[idx: idx + n]).view_as(p)
+            with torch.no_grad():
+                p.add_(delta)
+            idx += n
+
+        # g(θ + σv)
+        model.zero_grad(set_to_none=True)
+        loss1 = forward_fn(model)
+        grads1 = torch.autograd.grad(
+            loss1,
+            param_list,
+            create_graph=False,
+            allow_unused=True,
+        )
+        g1_list = []
+        for g, p in zip(grads1, param_list):
+            if g is None:
+                g1_list.append(torch.zeros_like(p).reshape(-1))
+            else:
+                g1_list.append(g.reshape(-1))
+        g1 = torch.cat(g1_list)
+
+        # θ 恢复
+        idx = 0
+        for p in param_list:
+            n = p.numel()
+            delta = (sigma * v[idx: idx + n]).view_as(p)
+            with torch.no_grad():
+                p.sub_(delta)
+            idx += n
+
+        # H v ≈ (g1 - g0) / σ，曲率样本 v^T H v
+        hvp = (g1 - g0) / sigma
+        curv_sample = torch.dot(v, hvp).item()
+        curvature_sum += curv_sample
+
+    if was_training:
+        model.train()
+    else:
+        model.eval()
+
+    return curvature_sum / num_probes
 
 
 def rbd_init_multitask_curvature_fullspace(
@@ -175,7 +273,7 @@ def rbd_init_multitask_curvature_fullspace(
             # h = torch.randn(D, device=device)
             # h /= h.norm() + 1e-12
 
-            h = sample_cone_direction(m_full, 0.1, device)
+            h = sample_cone_direction(m_full, 0.34, device)
 
             theta_pos = theta0 + grad_est_eps * h
             theta_neg = theta0 - grad_est_eps * h
@@ -233,9 +331,9 @@ def rbd_init_multitask_curvature_fullspace(
                 dir_sign = 1.0 if K_t < 0 else - 1.0
 
                 if K_t < 0:
-                    alpha_t = ratio * base_penalty *  delta_mag
+                    alpha_t = ratio * base_penalty * (1.0 + delta_mag)
                 else:
-                    alpha_t = (1-ratio) * base_penalty * delta_mag
+                    alpha_t = (1-ratio) * base_penalty * (1.0 + delta_mag)
                 
 
                 g_theta_curv_t =  dir_sign * alpha_t * slope_t * h.clone()

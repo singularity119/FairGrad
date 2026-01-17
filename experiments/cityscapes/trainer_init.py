@@ -296,7 +296,7 @@ def main(path, lr, bs, device):
                 "keys": keys,
                 "avg_cost": avg_cost,
                 "losses": loss_list,
-            }, f"./save/{name}.stats")
+            }, os.path.join(args.save_dir, f"{name}.stats"))
     print("Final Performance: ")
     final_performance = [
         np.mean(avg_cost[-10:, 6]),  # Test Semantic Loss
@@ -365,6 +365,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--wandb_project", type=str, default=None, help="Name of Weights & Biases Project.")
     parser.add_argument("--wandb_entity", type=str, default=None, help="Name of Weights & Biases Entity.")
+    parser.add_argument("--save-dir", type=str, default="./save", help="Directory to save stats.")
     args = parser.parse_args()
 
     # set seed
