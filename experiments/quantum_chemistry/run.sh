@@ -18,6 +18,8 @@ echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 method=famo # famo模式切换
 alpha=2.0
 seed=1
+seed=42
+>>>>>>> aa145d277001970528da991b41ac99b3fbae0fcd
 gamma=0.001 # 增加gamma用于famo模式切换
 
 # --- 4. 运行训练 ---
