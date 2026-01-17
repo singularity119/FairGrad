@@ -9,9 +9,9 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import trange
 
-from experiments.nyuv2.data import NYUv2
-from experiments.nyuv2.models import SegNet, SegNetMtan
-from experiments.nyuv2.utils import ConfMatrix, delta_fn, depth_error, normal_error
+from experiments.cityscapes.data import Cityscapes
+from experiments.cityscapes.models import SegNet, SegNetMtan
+from experiments.cityscapes.utils import ConfMatrix, delta_fn, depth_error
 from experiments.utils import (
     common_parser,
     extract_weight_method_parameters_from_args,
@@ -20,7 +20,7 @@ from experiments.utils import (
     set_seed,
     str2bool,
 )
-from initial_nyuv2 import *
+from experiments.cityscapes.cone_initial_cityscape import rbd_init_multitask_curvature_fullspace
 from methods.weight_methods import WeightMethods
 
 set_logger()
@@ -42,12 +42,6 @@ def calc_loss(x_pred, x_output, task_type):
             binary_mask, as_tuple=False
         ).size(0)
 
-    if task_type == "normal":
-        # normal loss: dot product
-        loss = 1 - torch.sum((x_pred * x_output) * binary_mask) / torch.nonzero(
-            binary_mask, as_tuple=False
-        ).size(0)
-
     return loss
 
 
@@ -60,28 +54,28 @@ def main(path, lr, bs, device):
 
     # dataset and dataloaders
     log_str = (
-        "Applying data augmentation on NYUv2."
+        "Applying data augmentation on Cityscapes2."
         if args.apply_augmentation
         else "Standard training strategy without data augmentation."
     )
     logging.info(log_str)
 
-    nyuv2_train_set = NYUv2(
+    cityscapes_train_set = Cityscapes(
         root=path.as_posix(), train=True, augmentation=args.apply_augmentation
     )
-    nyuv2_test_set = NYUv2(root=path.as_posix(), train=False)
+    cityscapes_test_set = Cityscapes(root=path.as_posix(), train=False)
 
     train_loader = torch.utils.data.DataLoader(
-        dataset=nyuv2_train_set, batch_size=bs, shuffle=True
+        dataset=cityscapes_train_set, batch_size=bs, shuffle=True
     )
 
     test_loader = torch.utils.data.DataLoader(
-        dataset=nyuv2_test_set, batch_size=bs, shuffle=False
+        dataset=cityscapes_test_set, batch_size=bs, shuffle=False
     )
     
     if args.init_type == "rbd_multitask_curvature_fullspace":
         init_loader = torch.utils.data.DataLoader(
-            dataset=nyuv2_train_set, batch_size=bs, shuffle=True
+            dataset=cityscapes_train_set, batch_size=bs, shuffle=True
         )
         model = rbd_init_multitask_curvature_fullspace(
             model,
@@ -101,7 +95,7 @@ def main(path, lr, bs, device):
     weight_methods_parameters = extract_weight_method_parameters_from_args(args)
 
     weight_method = WeightMethods(
-        args.method, n_tasks=3, device=device, **weight_methods_parameters[args.method]
+        args.method, n_tasks=2, device=device, **weight_methods_parameters[args.method]
     )
 
     # optimizer
@@ -117,7 +111,7 @@ def main(path, lr, bs, device):
     epoch_iter = trange(epochs)
     train_batch = len(train_loader)
     test_batch = len(test_loader)
-    avg_cost = np.zeros([epochs, 24], dtype=np.float32)
+    avg_cost = np.zeros([epochs, 12], dtype=np.float32)
     custom_step = -1
     conf_mat = ConfMatrix(model.segnet.class_nb)
     deltas = np.zeros([epochs,], dtype=np.float32)
@@ -126,18 +120,18 @@ def main(path, lr, bs, device):
     loss_list = []
 
     for epoch in epoch_iter:
-        cost = np.zeros(24, dtype=np.float32)
+        cost = np.zeros(12, dtype=np.float32)
 
         for j, batch in enumerate(train_loader):
             custom_step += 1
 
             model.train()
             optimizer.zero_grad()
-            train_data, train_label, train_depth, train_normal = batch
+            train_data, train_label, train_depth = batch
             train_data, train_label = train_data.to(device), train_label.long().to(
                 device
             )
-            train_depth, train_normal = train_depth.to(device), train_normal.to(device)
+            train_depth = train_depth.to(device)
 
             train_pred, features = model(train_data, return_representation=True)
 
@@ -145,7 +139,6 @@ def main(path, lr, bs, device):
                 (
                     calc_loss(train_pred[0], train_label, "semantic"),
                     calc_loss(train_pred[1], train_depth, "depth"),
-                    calc_loss(train_pred[2], train_normal, "normal"),
                 )
             )
 
@@ -168,7 +161,6 @@ def main(path, lr, bs, device):
                         (
                             calc_loss(train_pred[0], train_label, "semantic"),
                             calc_loss(train_pred[1], train_depth, "depth"),
-                            calc_loss(train_pred[2], train_normal, "normal"),
                         )
                     )
                     weight_method.method.update(new_losses.detach())
@@ -179,16 +171,11 @@ def main(path, lr, bs, device):
             cost[0] = losses[0].item()
             cost[3] = losses[1].item()
             cost[4], cost[5] = depth_error(train_pred[1], train_depth)
-            cost[6] = losses[2].item()
-            cost[7], cost[8], cost[9], cost[10], cost[11] = normal_error(
-                train_pred[2], train_normal
-            )
-            avg_cost[epoch, :12] += cost[:12] / train_batch
+            avg_cost[epoch, :6] += cost[:6] / train_batch
 
             epoch_iter.set_description(
                 f"[{epoch+1}  {j+1}/{train_batch}] semantic loss: {losses[0].item():.3f}, "
                 f"depth loss: {losses[1].item():.3f}, "
-                f"normal loss: {losses[2].item():.3f}"
             )
 
         # scheduler
@@ -204,53 +191,46 @@ def main(path, lr, bs, device):
             test_dataset = iter(test_loader)
             for k in range(test_batch):
                 # PyTorch DataLoader iterator uses __next__(), not .next()
-                test_data, test_label, test_depth, test_normal = next(test_dataset)
+                test_data, test_label, test_depth = next(test_dataset)
                 test_data, test_label = test_data.to(device), test_label.long().to(
                     device
                 )
-                test_depth, test_normal = test_depth.to(device), test_normal.to(device)
+                test_depth = test_depth.to(device)
 
                 test_pred = model(test_data)
                 test_loss = torch.stack(
                     (
                         calc_loss(test_pred[0], test_label, "semantic"),
                         calc_loss(test_pred[1], test_depth, "depth"),
-                        calc_loss(test_pred[2], test_normal, "normal"),
                     )
                 )
 
                 conf_mat.update(test_pred[0].argmax(1).flatten(), test_label.flatten())
 
-                cost[12] = test_loss[0].item()
-                cost[15] = test_loss[1].item()
-                cost[16], cost[17] = depth_error(test_pred[1], test_depth)
-                cost[18] = test_loss[2].item()
-                cost[19], cost[20], cost[21], cost[22], cost[23] = normal_error(
-                    test_pred[2], test_normal
-                )
-                avg_cost[epoch, 12:] += cost[12:] / test_batch
+                cost[6] = test_loss[0].item()
+                cost[9] = test_loss[1].item()
+                cost[10], cost[11] = depth_error(test_pred[1], test_depth)
+                avg_cost[epoch, 6:] += cost[6:] / test_batch
 
             # compute mIoU and acc
-            avg_cost[epoch, 13:15] = conf_mat.get_metrics()
+            avg_cost[epoch, 7:9] = conf_mat.get_metrics()
 
             # Test Delta_m
             test_delta_m = delta_fn(
-                avg_cost[epoch, [13, 14, 16, 17, 19, 20, 21, 22, 23]]
+                avg_cost[epoch, [7, 8, 10, 11]]
             )
             deltas[epoch] = test_delta_m
 
             # print results
             print(
                 f"LOSS FORMAT: SEMANTIC_LOSS MEAN_IOU PIX_ACC | DEPTH_LOSS ABS_ERR REL_ERR "
-                f"| NORMAL_LOSS MEAN MED <11.25 <22.5 <30 | ∆m (test)"
+                f"| ∆m (test)"
             )
             print(
                 f"Epoch: {epoch:04d} | TRAIN: {avg_cost[epoch, 0]:.4f} {avg_cost[epoch, 1]:.4f} {avg_cost[epoch, 2]:.4f} "
-                f"| {avg_cost[epoch, 3]:.4f} {avg_cost[epoch, 4]:.4f} {avg_cost[epoch, 5]:.4f} | {avg_cost[epoch, 6]:.4f} "
-                f"{avg_cost[epoch, 7]:.4f} {avg_cost[epoch, 8]:.4f} {avg_cost[epoch, 9]:.4f} {avg_cost[epoch, 10]:.4f} {avg_cost[epoch, 11]:.4f} || "
-                f"TEST: {avg_cost[epoch, 12]:.4f} {avg_cost[epoch, 13]:.4f} {avg_cost[epoch, 14]:.4f} | "
-                f"{avg_cost[epoch, 15]:.4f} {avg_cost[epoch, 16]:.4f} {avg_cost[epoch, 17]:.4f} | {avg_cost[epoch, 18]:.4f} "
-                f"{avg_cost[epoch, 19]:.4f} {avg_cost[epoch, 20]:.4f} {avg_cost[epoch, 21]:.4f} {avg_cost[epoch, 22]:.4f} {avg_cost[epoch, 23]:.4f} "
+                f"| {avg_cost[epoch, 3]:.4f} {avg_cost[epoch, 4]:.4f} {avg_cost[epoch, 5]:.4f} || "
+                f"TEST: {avg_cost[epoch, 6]:.4f} {avg_cost[epoch, 7]:.4f} {avg_cost[epoch, 8]:.4f} | "
+                f"{avg_cost[epoch, 9]:.4f} {avg_cost[epoch, 10]:.4f} {avg_cost[epoch, 11]:.4f} "
                 f"| {test_delta_m:.3f}"
             )
             
@@ -260,19 +240,13 @@ def main(path, lr, bs, device):
                 end_idx = epoch + 1         # 右开
                 print(
                     f"Epoch {start_idx+1}-{end_idx} Average: "
-                    "TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(
-                        np.mean(avg_cost[start_idx:end_idx, 12]),  # Test Semantic Loss
-                        np.mean(avg_cost[start_idx:end_idx, 13]),  # Test Mean IoU
-                        np.mean(avg_cost[start_idx:end_idx, 14]),  # Test Pixel Accuracy
-                        np.mean(avg_cost[start_idx:end_idx, 15]),  # Test Depth Loss
-                        np.mean(avg_cost[start_idx:end_idx, 16]),  # Test Absolute Error
-                        np.mean(avg_cost[start_idx:end_idx, 17]),  # Test Relative Error
-                        np.mean(avg_cost[start_idx:end_idx, 18]),  # Test Normal Loss
-                        np.mean(avg_cost[start_idx:end_idx, 19]),  # Test Loss Mean
-                        np.mean(avg_cost[start_idx:end_idx, 20]),  # Test Loss Med
-                        np.mean(avg_cost[start_idx:end_idx, 21]),  # Test Loss <11.25
-                        np.mean(avg_cost[start_idx:end_idx, 22]),  # Test Loss <22.5
-                        np.mean(avg_cost[start_idx:end_idx, 23]),  # Test Loss <30
+                    "TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}".format(
+                        np.mean(avg_cost[start_idx:end_idx, 6]),  # Test Semantic Loss
+                        np.mean(avg_cost[start_idx:end_idx, 7]),  # Test Mean IoU
+                        np.mean(avg_cost[start_idx:end_idx, 8]),  # Test Pixel Accuracy
+                        np.mean(avg_cost[start_idx:end_idx, 9]),  # Test Depth Loss
+                        np.mean(avg_cost[start_idx:end_idx, 10]), # Test Absolute Error
+                        np.mean(avg_cost[start_idx:end_idx, 11]), # Test Relative Error
                         np.mean(deltas[start_idx:end_idx]),        # Test ∆m
                     )
                 )
@@ -284,25 +258,13 @@ def main(path, lr, bs, device):
                 wandb.log({"Train Depth Loss": avg_cost[epoch, 3]}, step=epoch)
                 wandb.log({"Train Absolute Error": avg_cost[epoch, 4]}, step=epoch)
                 wandb.log({"Train Relative Error": avg_cost[epoch, 5]}, step=epoch)
-                wandb.log({"Train Normal Loss": avg_cost[epoch, 6]}, step=epoch)
-                wandb.log({"Train Loss Mean": avg_cost[epoch, 7]}, step=epoch)
-                wandb.log({"Train Loss Med": avg_cost[epoch, 8]}, step=epoch)
-                wandb.log({"Train Loss <11.25": avg_cost[epoch, 9]}, step=epoch)
-                wandb.log({"Train Loss <22.5": avg_cost[epoch, 10]}, step=epoch)
-                wandb.log({"Train Loss <30": avg_cost[epoch, 11]}, step=epoch)
 
-                wandb.log({"Test Semantic Loss": avg_cost[epoch, 12]}, step=epoch)
-                wandb.log({"Test Mean IoU": avg_cost[epoch, 13]}, step=epoch)
-                wandb.log({"Test Pixel Accuracy": avg_cost[epoch, 14]}, step=epoch)
-                wandb.log({"Test Depth Loss": avg_cost[epoch, 15]}, step=epoch)
-                wandb.log({"Test Absolute Error": avg_cost[epoch, 16]}, step=epoch)
-                wandb.log({"Test Relative Error": avg_cost[epoch, 17]}, step=epoch)
-                wandb.log({"Test Normal Loss": avg_cost[epoch, 18]}, step=epoch)
-                wandb.log({"Test Loss Mean": avg_cost[epoch, 19]}, step=epoch)
-                wandb.log({"Test Loss Med": avg_cost[epoch, 20]}, step=epoch)
-                wandb.log({"Test Loss <11.25": avg_cost[epoch, 21]}, step=epoch)
-                wandb.log({"Test Loss <22.5": avg_cost[epoch, 22]}, step=epoch)
-                wandb.log({"Test Loss <30": avg_cost[epoch, 23]}, step=epoch)
+                wandb.log({"Test Semantic Loss": avg_cost[epoch, 6]}, step=epoch)
+                wandb.log({"Test Mean IoU": avg_cost[epoch, 7]}, step=epoch)
+                wandb.log({"Test Pixel Accuracy": avg_cost[epoch, 8]}, step=epoch)
+                wandb.log({"Test Depth Loss": avg_cost[epoch, 9]}, step=epoch)
+                wandb.log({"Test Absolute Error": avg_cost[epoch, 10]}, step=epoch)
+                wandb.log({"Test Relative Error": avg_cost[epoch, 11]}, step=epoch)
                 wandb.log({"Test ∆m": test_delta_m}, step=epoch)
 
 
@@ -314,12 +276,6 @@ def main(path, lr, bs, device):
                 "Train Depth Loss",
                 "Train Absolute Error",
                 "Train Relative Error",
-                "Train Normal Loss",
-                "Train Loss Mean",
-                "Train Loss Med",
-                "Train Loss <11.25",
-                "Train Loss <22.5",
-                "Train Loss <30",
 
                 "Test Semantic Loss",
                 "Test Mean IoU",
@@ -327,12 +283,6 @@ def main(path, lr, bs, device):
                 "Test Depth Loss",
                 "Test Absolute Error",
                 "Test Relative Error",
-                "Test Normal Loss",
-                "Test Loss Mean",
-                "Test Loss Med",
-                "Test Loss <11.25",
-                "Test Loss <22.5",
-                "Test Loss <30"
             ]
 
 
@@ -349,32 +299,26 @@ def main(path, lr, bs, device):
             }, f"./save/{name}.stats")
     print("Final Performance: ")
     final_performance = [
-        np.mean(avg_cost[-10:, 12]),  # Test Semantic Loss
-        np.mean(avg_cost[-10:, 13]),  # Test Mean IoU
-        np.mean(avg_cost[-10:, 14]),  # Test Pixel Accuracy
-        np.mean(avg_cost[-10:, 15]),  # Test Depth Loss
-        np.mean(avg_cost[-10:, 16]),  # Test Absolute Error
-        np.mean(avg_cost[-10:, 17]),  # Test Relative Error
-        np.mean(avg_cost[-10:, 18]),  # Test Normal Loss
-        np.mean(avg_cost[-10:, 19]),  # Test Loss Mean
-        np.mean(avg_cost[-10:, 20]),  # Test Loss Med
-        np.mean(avg_cost[-10:, 21]),  # Test Loss <11.25
-        np.mean(avg_cost[-10:, 22]),  # Test Loss <22.5
-        np.mean(avg_cost[-10:, 23]),  # Test Loss <30
+        np.mean(avg_cost[-10:, 6]),  # Test Semantic Loss
+        np.mean(avg_cost[-10:, 7]),  # Test Mean IoU
+        np.mean(avg_cost[-10:, 8]),  # Test Pixel Accuracy
+        np.mean(avg_cost[-10:, 9]),  # Test Depth Loss
+        np.mean(avg_cost[-10:, 10]), # Test Absolute Error
+        np.mean(avg_cost[-10:, 11]), # Test Relative Error
         np.mean(deltas[-10:])         # Test Delta_m
     ]
     
-    print('TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'
+    print('TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'
             .format(*final_performance))
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser("NYUv2", parents=[common_parser])
+    parser = ArgumentParser("Cityscapes", parents=[common_parser])
     parser.set_defaults(
-        data_path=os.path.join(os.getcwd(), "dataset"),
+        data_path="/root/autodl-tmp/dataset/cityscapes2",
         lr=1e-4,
         n_epochs=200,
-        batch_size=2,
+        batch_size=8,
     )
     parser.add_argument(
         "--model",
