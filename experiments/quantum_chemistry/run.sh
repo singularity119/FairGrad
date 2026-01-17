@@ -16,8 +16,6 @@ export PYTHONPATH=$PYTHONPATH:/root/FairGrad
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
 method=famo # famo模式切换
-method=fairgrad # famo模式切换
->>>>>>> 7cd9945556f1cbc9efd33e95fa6fd35d460393bb
 alpha=2.0
 seed=1
 gamma=0.001 # 增加gamma用于famo模式切换
