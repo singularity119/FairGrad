@@ -260,6 +260,17 @@ def main(
     print('TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'
           .format(*final_performance))
 
+       # Final metrics report
+    print("\n" + "="*30)
+    print(f"Final Performance (Epoch {epoch}):")
+    print(f"Test Loss: {test_loss:.4f}")
+    print(f"Test Delta: {test_delta:.4f}")
+    print("-" * 30)
+    print("Best Performance (Based on Val):")
+    print(f"Best Test Loss: {best_test:.4f}")
+    print(f"Best Test Delta: {best_test_delta:.4f}")
+    print("="*30)
+
 
 
 if __name__ == "__main__":
@@ -271,7 +282,7 @@ if __name__ == "__main__":
         batch_size=120,
         method="nashmtl",
     )
-    parser.add_argument("--scale-y", default=False, type=str2bool)
+    parser.add_argument("--scale-y", default=True, type=str2bool)
     parser.add_argument("--wandb_project", type=str, default=None, help="Name of Weights & Biases Project.")
     parser.add_argument("--wandb_entity", type=str, default=None, help="Name of Weights & Biases Entity.")
     parser.add_argument("--save-dir", type=str, default="./save", help="Directory to save the results.")
