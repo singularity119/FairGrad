@@ -19,10 +19,10 @@ method=fairgrad
 alpha=2.0
 # 可选: rbd_multitask_curvature_fullspace 或留空表示 None
 init_type=rbd_multitask_curvature_fullspace 
-steps=50
+steps=0
 seed=0
 h_strategy="cone"
-angle=0.34
+angle=0.52
 timestamp=$(date +"%Y%m%d_%H%M%S")
 
 if [ -z "$init_type" ] || [ "$init_type" == "None" ]; then

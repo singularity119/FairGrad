@@ -273,7 +273,7 @@ def rbd_init_multitask_curvature_fullspace(
             # h = torch.randn(D, device=device)
             # h /= h.norm() + 1e-12
 
-            h = sample_cone_direction(m_full, 0.34, device)
+            h = sample_cone_direction(m_full, 0.52, device)
 
             theta_pos = theta0 + grad_est_eps * h
             theta_neg = theta0 - grad_est_eps * h

@@ -20,7 +20,7 @@ init=xaiver
 
 # --- 4. 运行训练 ---
 # 注意：我们增加了 --save-dir 参数来指定输出位置
-nohup python -u trainer_init.py \
+nohup python -u trainer.py \
     --method=$method \
     --seed=$seed \
     --alpha=$alpha \
