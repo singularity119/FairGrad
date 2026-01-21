@@ -17,7 +17,7 @@ echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
 method=fairgrad
 alpha=2.0
-seed=0
+seed=1
 beta_range="0.1-0.9"
 
 # --- 4. 运行训练 ---

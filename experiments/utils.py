@@ -7,6 +7,25 @@ from pathlib import Path
 import numpy as np
 import torch
 
+# Patch torch.load for compatibility with torch < 1.13 and torch_geometric 2.6.1+
+def _patch_torch_load():
+    import torch
+    from inspect import signature
+
+    # Check if torch.load supports weights_only
+    if 'weights_only' not in signature(torch.load).parameters:
+        orig_torch_load = torch.load
+
+        def patched_torch_load(f, *args, **kwargs):
+            if 'weights_only' in kwargs:
+                kwargs.pop('weights_only')
+            return orig_torch_load(f, *args, **kwargs)
+
+        torch.load = patched_torch_load
+
+_patch_torch_load()
+
+
 from methods import METHODS
 
 
