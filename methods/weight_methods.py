@@ -152,6 +152,7 @@ class NashMTL(WeightMethod):
         max_norm: float = 1.0,
         update_weights_every: int = 1,
         optim_niter=20,
+        use_log: bool = False,
     ):
         super(NashMTL, self).__init__(
             n_tasks=n_tasks,
@@ -161,6 +162,7 @@ class NashMTL(WeightMethod):
         self.optim_niter = optim_niter
         self.update_weights_every = update_weights_every
         self.max_norm = max_norm
+        self.use_log = use_log
 
         self.prvs_alpha_param = None
         self.normalization_factor = np.ones((1,))
@@ -263,9 +265,10 @@ class NashMTL(WeightMethod):
 
             grads = {}
             for i, loss in enumerate(losses):
+                _loss = (loss + EPS).log() if self.use_log else loss
                 g = list(
                     torch.autograd.grad(
-                        loss,
+                        _loss,
                         shared_parameters,
                         retain_graph=True,
                     )
@@ -281,13 +284,16 @@ class NashMTL(WeightMethod):
             )
             GTG = GTG / self.normalization_factor.item()
             alpha = self.solve_optimization(GTG.cpu().detach().numpy())
-            alpha = torch.from_numpy(alpha)
+            alpha = torch.from_numpy(alpha).to(self.device)
 
         else:
             self.step += 1
-            alpha = self.prvs_alpha
+            alpha = torch.from_numpy(self.prvs_alpha).to(self.device)
 
-        weighted_loss = sum([losses[i] * alpha[i] for i in range(len(alpha))])
+        if self.use_log:
+            weighted_loss = sum([(losses[i] + EPS).log() * alpha[i] for i in range(len(alpha))])
+        else:
+            weighted_loss = sum([losses[i] * alpha[i] for i in range(len(alpha))])
         extra_outputs["weights"] = alpha
         extra_outputs["GTG"] = GTG.detach().cpu().numpy()
         return weighted_loss, extra_outputs

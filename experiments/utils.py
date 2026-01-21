@@ -145,6 +145,7 @@ def extract_weight_method_parameters_from_args(args):
                 update_weights_every=args.update_weights_every,
                 optim_niter=args.nashmtl_optim_niter,
                 max_norm=args.max_norm,
+                use_log=args.use_log,
             ),
             stl=dict(main_task=args.main_task),
             dwa=dict(temp=args.dwa_temp),
