@@ -4,17 +4,6 @@ import os
 import numpy as np
 import torch
 import torch.nn.functional as F
-
-# Monkeypatch torch.load to be compatible with torch-geometric 2.6.1 and torch 1.11.0
-import torch.serialization
-import pickle
-original_load = torch.load
-def patched_load(f, map_location=None, pickle_module=pickle, **pickle_load_args):
-    if 'weights_only' in pickle_load_args:
-        del pickle_load_args['weights_only']
-    return original_load(f, map_location, pickle_module, **pickle_load_args)
-torch.load = patched_load
-
 import torch_geometric.transforms as T
 from torch_geometric.datasets import QM9
 from torch_geometric.loader import DataLoader
@@ -37,6 +26,7 @@ from experiments.utils import (
     set_seed,
     str2bool,
 )
+from experiments.custom_optimizer import AdaptiveBetaAdam
 from methods.weight_methods import WeightMethods
 
 set_logger()
@@ -88,6 +78,7 @@ def main(
     targets: list = None,
     scale_target: bool = True,
     main_task: int = None,
+    save_dir: str = "./save",
 ):
     dim = 64
     model = Net(n_tasks=len(targets), num_features=11, dim=dim).to(device)
@@ -124,14 +115,23 @@ def main(
         **weight_method_params[method],
     )
 
-    optimizer = torch.optim.Adam(
+    optimizer = AdaptiveBetaAdam(
         [
-            dict(params=model.parameters(), lr=lr),
-            dict(params=weight_method.parameters(), lr=method_params_lr),
+            dict(params=model.shared_parameters(), lr=lr),
+        ],
+        beta_range=(0.1, 0.9),  # beta_range: (0.1, 0.9), (0.5, 0.9), (0.1, 0.5) 这三组去试
+        )   
+    optimizer_head = torch.optim.Adam(
+        [
+            dict(params=model.task_specific_parameters(), lr=lr),
+            dict(params=weight_method.parameters(), lr=args.method_params_lr),
         ],
     )
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.7, patience=5, min_lr=0.00001
+    )
+    scheduler_head = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=0.7, patience=5, min_lr=0.00001
     )
 
@@ -156,6 +156,7 @@ def main(
 
             data = data.to(device)
             optimizer.zero_grad()
+            optimizer_head.zero_grad()
 
             out, features = model(data, return_representation=True)
 
@@ -171,6 +172,7 @@ def main(
 
             loss_list.append(losses.detach().cpu())
             optimizer.step()
+            optimizer_head.step()
 
             if "famo" in args.method:
                 with torch.no_grad():
@@ -227,6 +229,11 @@ def main(
             if method == "stl"
             else val_delta
         )
+        scheduler_head.step(
+            val_loss_dict["avg_task_losses"][main_task]
+            if method == "stl"
+            else val_delta
+        )
 
         if "famo" in args.method:
             if args.scale_y:
@@ -247,30 +254,7 @@ def main(
             "avg_cost": avg_cost,
             "losses": loss_list,
             "delta_m": deltas,
-        }, os.path.join(args.save_dir, f"{name}.stats"))
-
-    # add metrics
-    print("Final Performance: ")
-    final_performance = [
-        np.mean(avg_cost[-10:, 13]),  # Test Loss (Avg)
-        *np.mean(avg_cost[-10:, 14:25], axis=0),  # Test Task Losses (11 tasks)
-        np.mean(deltas[-10:])  # Test Delta_m
-    ]
-
-    print('TEST: {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'
-          .format(*final_performance))
-
-       # Final metrics report
-    print("\n" + "="*30)
-    print(f"Final Performance (Epoch {epoch}):")
-    print(f"Test Loss: {test_loss:.4f}")
-    print(f"Test Delta: {test_delta:.4f}")
-    print("-" * 30)
-    print("Best Performance (Based on Val):")
-    print(f"Best Test Loss: {best_test:.4f}")
-    print(f"Best Test Delta: {best_test_delta:.4f}")
-    print("="*30)
-
+        }, f"{save_dir}/{name}.stats")
 
 
 if __name__ == "__main__":
@@ -282,10 +266,10 @@ if __name__ == "__main__":
         batch_size=120,
         method="nashmtl",
     )
-    parser.add_argument("--scale-y", default=True, type=str2bool)
+    parser.add_argument("--scale-y", default=False, type=str2bool)
+    parser.add_argument("--save-dir", type=str, default="./save", help="Directory to save stats files.")
     parser.add_argument("--wandb_project", type=str, default=None, help="Name of Weights & Biases Project.")
     parser.add_argument("--wandb_entity", type=str, default=None, help="Name of Weights & Biases Entity.")
-    parser.add_argument("--save-dir", type=str, default="./save", help="Directory to save the results.")
     args = parser.parse_args()
 
     # set seed
@@ -309,6 +293,7 @@ if __name__ == "__main__":
         targets=targets,
         scale_target=args.scale_y,
         main_task=args.main_task,
+        save_dir=args.save_dir,
     )
 
     if wandb.run is not None:

@@ -1,5 +1,5 @@
 # --- 1. 定义 AutoDL 输出路径 ---
-EXP_ROOT="/root/autodl-tmp/experiment/quantum_chemistry_experiment"
+EXP_ROOT="/root/autodl-tmp/experiment/quantum_chemistry_experiment/apt"
 DATA_DIR="/root/autodl-tmp/dataset/qm9"
 SAVE_DIR="$EXP_ROOT/save"
 LOG_DIR="$EXP_ROOT/trainlogs"
@@ -15,21 +15,19 @@ export CUDA_VISIBLE_DEVICES=0
 export PYTHONPATH=$PYTHONPATH:/root/FairGrad
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
-method=famo # famo模式切换
+method=fairgrad
 alpha=2.0
-seed=44
-gamma=0.001 # 增加gamma用于famo模式切换
+seed=0
+beta_range="0.1-0.9"
 
 # --- 4. 运行训练 ---
-# 注意：我们增加了 --save-dir 参数来指定输出位置
-nohup python -u trainer.py \
+nohup python -u trainer_apt.py \
     --method=$method \
     --alpha=$alpha \
     --seed=$seed \
-    --gamma=$gamma \
     --scale-y=True \
     --data-path "$DATA_DIR" \
     --save-dir "$SAVE_DIR" \
-    > "$LOG_DIR/$method-alpha$alpha-sd$seed-gamma$gamma.log" 2>&1 &
+    > "$LOG_DIR/$method-alpha$alpha-sd$seed-beta_range$beta_range.log" 2>&1 &
 
-echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed-gamma$gamma.log"
+echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed-beta_range$beta_range.log"
