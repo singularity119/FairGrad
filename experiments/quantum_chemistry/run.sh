@@ -15,9 +15,9 @@ export CUDA_VISIBLE_DEVICES=0
 export PYTHONPATH=$PYTHONPATH:/root/FairGrad
 echo "Using GPU: $CUDA_VISIBLE_DEVICES"
 
-method=famo # famo模式切换
+method=fairgrad # famo模式切换
 alpha=2.0
-seed=44
+seed=0
 gamma=0.001 # 增加gamma用于famo模式切换
 
 # --- 4. 运行训练 ---
@@ -26,10 +26,9 @@ nohup python -u trainer.py \
     --method=$method \
     --alpha=$alpha \
     --seed=$seed \
-    --gamma=$gamma \
     --scale-y=True \
     --data-path "$DATA_DIR" \
     --save-dir "$SAVE_DIR" \
-    > "$LOG_DIR/$method-alpha$alpha-sd$seed-gamma$gamma.log" 2>&1 &
+    > "$LOG_DIR/$method-alpha$alpha-sd$seed.log" 2>&1 &
 
-echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed-gamma$gamma.log"
+echo "Training started. Logs: $LOG_DIR/$method-alpha$alpha-sd$seed.log"

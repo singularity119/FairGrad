@@ -119,7 +119,7 @@ def main(
         [
             dict(params=model.shared_parameters(), lr=lr),
         ],
-        beta_range=(0.1, 0.9),  # beta_range: (0.1, 0.9), (0.5, 0.9), (0.1, 0.5) 这三组去试
+        beta_range=tuple(args.beta_range),
         )   
     optimizer_head = torch.optim.Adam(
         [
@@ -241,10 +241,11 @@ def main(
             else:
                 name = f"{args.method}_gamma{args.gamma}_wlr{args.method_params_lr}_sd{args.seed}"
         elif "fairgrad" in args.method:
+            beta_str = f"beta{args.beta_range[0]}-{args.beta_range[1]}"
             if args.scale_y:
-                name = f"{args.method}_alpha{args.alpha}_scale_sd{args.seed}"
+                name = f"{args.method}_alpha{args.alpha}_scale_{beta_str}_sd{args.seed}"
             else:
-                name = f"{args.method}_alpha{args.alpha}_sd{args.seed}"
+                name = f"{args.method}_alpha{args.alpha}_{beta_str}_sd{args.seed}"
         elif "stl" in args.method:
             name = f"{args.method}_task{args.main_task}_sd{args.seed}"
         else:
@@ -268,6 +269,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--scale-y", default=False, type=str2bool)
     parser.add_argument("--save-dir", type=str, default="./save", help="Directory to save stats files.")
+    parser.add_argument("--beta-range", type=float, nargs=2, default=[0.1, 0.9], help="Beta range for AdaptiveBetaAdam.")
     parser.add_argument("--wandb_project", type=str, default=None, help="Name of Weights & Biases Project.")
     parser.add_argument("--wandb_entity", type=str, default=None, help="Name of Weights & Biases Entity.")
     args = parser.parse_args()

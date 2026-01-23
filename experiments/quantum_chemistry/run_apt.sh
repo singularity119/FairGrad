@@ -26,6 +26,7 @@ nohup python -u trainer_apt.py \
     --alpha=$alpha \
     --seed=$seed \
     --scale-y=True \
+    --beta-range ${beta_range//-/ } \
     --data-path "$DATA_DIR" \
     --save-dir "$SAVE_DIR" \
     > "$LOG_DIR/$method-alpha$alpha-sd$seed-beta_range$beta_range.log" 2>&1 &
